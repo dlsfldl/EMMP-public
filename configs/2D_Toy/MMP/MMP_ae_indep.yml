@@ -1,0 +1,64 @@
+logdir: 'results/Toy2D/MMP/AE/'
+logger: 
+    type: base
+    endwith: ['#']
+# wandb_project_name: project name
+# entity: entity name
+model:
+    arch: mmp_ae 
+    encoder:
+        arch: fc_vec
+        l_hidden: [512, 512, ]
+        activation: ['elu', 'elu', ]
+        out_activation: 'linear'
+        out_chan_num: 1
+    decoder:
+        arch: fc_vec
+        l_hidden: [512, 512, ]
+        activation: ['elu', 'elu', ]
+        out_activation: 'linear'
+        out_chan_num: 1
+    reg_type: independence
+    alpha: 0.01
+    x_dim: 402
+    z_dim: 1
+    w_dim: 4
+data:
+    training:
+        dataset: ToySpline2d
+        root: datasets/toy_2d/
+        batch_size: 75
+        n_workers: 4
+        split: training
+        data_ratio: 1
+        shuffle: True
+        augmentation: True
+    validation:
+        dataset: ToySpline2d
+        root: datasets/toy_2d/
+        batch_size: 80
+        n_workers: 4
+        split: validation
+        shuffle: True
+    test:
+        dataset: ToySpline2d
+        root: datasets/toy_2d/
+        batch_size: 40
+        n_workers: 4
+        split: test
+        shuffle: True
+trainer: base
+training:
+    n_epoch: 200000
+    optimizer:
+        name: 'adam'
+        lr: 0.0001
+    lr_schedule: null
+    resume: null
+    augmentations: null
+    print_interval: 5
+    val_interval: 100
+    visualize_interval: 10000
+    save_epochs: 10000
+    visualization:
+        type: [Spline_2d_plot_recon, Spline_2d_mannor_mod]

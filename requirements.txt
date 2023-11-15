@@ -1,0 +1,9 @@
+scipy
+tqdm
+matplotlib
+tensorboardX
+omegaconf
+pexpect
+scikit-learn
+wandb
+# pytorch

@@ -1,0 +1,89 @@
+logdir: 'results/Pouring/TCVAE/'
+logger: 
+    type: base
+    endwith: ['#']
+# wandb_project_name: project name
+# entity: entity name
+model:
+    arch: tcvae
+    encoder:
+        arch: tcvae_tcn_encoder
+        FC_l_hidden: [512, 512]
+        FC_activation: ['elu', 'elu']
+        FC_out_activation: 'linear'
+        TCN_kernel_size: 3
+        TCN_num_channel_list: [36, 72, 144]
+        time_step: 480
+    decoder:
+        arch: tcvae_tcn_decoder_se3
+        FCz_l_hidden: [512, 512]
+        FCz_activation: ['elu', 'elu']
+        FCz_out_dim: 40
+        FCz_out_activation: 'linear'
+        FCw_l_hidden: [512, 512]
+        FCw_activation: ['elu', 'elu']
+        FCw_out_activation: 'linear'
+        FCw_out_dim: 80
+        FC_l_hidden: [512, 512]
+        FC_activation: ['elu', 'elu']
+        FC_out_activation: 'linear'
+        TCN_kernel_size: 3
+        TCN_num_channel_list: [36, 72, 144]
+        time_step: 480
+    reg_type: auxillary
+    reg_net:
+        arch: fc_vec
+        l_hidden: [256, 256,]
+        activation: ['elu', 'elu']
+        out_activation: 'linear'
+    x_dim: 12
+    z_dim: 2
+    w_dim: 7
+    beta: 1
+    alpha: 1
+    recon_loss_fn_tr: MSE_loss_SE3
+data:
+    training:
+        dataset: Pouring
+        root: datasets/
+        batch_size: 75
+        n_workers: 4
+        split: training
+        augmentation: True
+        skip_size: 1
+        shuffle: True
+    validation:
+        dataset: Pouring
+        root: datasets/
+        batch_size: 75
+        n_workers: 4
+        split: validation
+        skip_size: 1
+        shuffle: True
+    test:
+        dataset: Pouring
+        root: datasets/
+        batch_size: 75
+        n_workers: 4
+        split: test
+        skip_size: 1
+        shuffle: True
+trainer: base
+training:
+    n_epoch: 500000
+    optimizer:
+        name: 'adam'
+        lr: 0.0001
+        weight_decay: 0.001
+    reg_optimizer:
+        name: 'adam'
+        lr: 0.0001
+    lr_schedule: null
+    resume: null
+    augmentations: null
+    print_interval: 5
+    val_interval: 100
+    visualize_interval: 10000
+    save_epochs: 10000
+    visualization:
+        type: [Pouring_recon_train_val]
