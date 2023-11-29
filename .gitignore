@@ -5,12 +5,14 @@ notebook/datasets/
 wandb/
 Pouring_visualization/data
 Pouring_visualization/results_imgs
-
+shell/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-
+.vscode/
+notebook/
+**localonly*
 # C extensions
 *.so
 

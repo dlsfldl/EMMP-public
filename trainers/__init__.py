@@ -11,6 +11,10 @@ def get_trainer(optimizer, cfg):
 def get_logger(cfg, writer):
     logger_type = cfg["logger"].get("type", "base")
     endwith = cfg["logger"].get("endwith", [])
+    if 'entity' in cfg.keys():
+        wandb_log = True
+    else:
+        wandb_log = False
     if logger_type in ["base"]:
-        logger = BaseLogger(writer, endwith=endwith)
+        logger = BaseLogger(writer, endwith=endwith, wandb_log=wandb_log)
     return logger

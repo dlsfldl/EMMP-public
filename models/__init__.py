@@ -303,13 +303,11 @@ def _get_model_instance(name):
         return {
             "ae": get_ae,
             "vae": get_ae,
-            "irvae": get_ae,
-            "tcvae": get_ae,
-            "tcae":get_ae,
-            "equivariant_tcvae": get_ae,
-            "equivariant_tcae": get_ae,
-            "tcvae_tcn":get_ae,
-            "equivariant_tcvae_tcn": get_ae,
+            "mmp_vae": get_ae,
+            "mmp_ae":get_ae,
+            "emmp_vae": get_ae,
+            "emmp_ae": get_ae,
+            "tcvae":get_ae,
         }[name]
     except:
         raise ("Model {} not available".format(name))

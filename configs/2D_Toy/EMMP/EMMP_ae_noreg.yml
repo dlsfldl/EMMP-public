@@ -18,8 +18,6 @@ model:
         activation: ['elu', 'elu', ]
         out_activation: 'linear'
         out_chan_num: 1
-    reg_type: independence
-    alpha: 0.01
     x_dim: 402
     z_dim: 1
     w_dim: 2
@@ -56,8 +54,8 @@ training:
     resume: null
     augmentations: null
     print_interval: 5
-    val_interval: 100
+    val_interval: 1000
     visualize_interval: 10000
     save_epochs: 10000
     visualization:
-        type: [Spline_2d_plot_recon, Spline_2d_mannor_mod]
+        type: [Spline_2d_plot_recon]

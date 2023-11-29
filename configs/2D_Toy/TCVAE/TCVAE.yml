@@ -40,7 +40,7 @@ model:
     z_dim: 1
     w_dim: 4
     beta: 1
-    alpha: 1
+    alpha: 0.5
 data:
     training:
         seed: 10
@@ -80,8 +80,8 @@ training:
     resume: null
     augmentations: null
     print_interval: 5
-    val_interval: 100
+    val_interval: 1000
     visualize_interval: 10000
     save_epochs: 10000
     visualization:
-        type: [Spline_2d_plot_recon, Spline_2d_mannor_mod]
+        type: [Spline_2d_plot_recon]

@@ -1,38 +1,28 @@
-seed: 5
-logdir: 'results/Toy2D/TCVAE/AE/'
-wandb_project_name: equilfd
-entity: bhlee
+logdir: 'results/Toy2D/EMMP/AE/'
 logger: 
     type: base
     endwith: ['#']
+# wandb_project_name: project name
+# entity: entity name
 model:
-    arch: tcae 
+    arch: emmp_ae 
     encoder:
         arch: fc_vec
-        l_hidden: [256, 256, 256]
-        activation: ['elu', 'elu', 'elu', ]
-        # l_hidden: [512, 512, 512, 512,]
-        # activation: ['elu', 'elu', 'elu', 'elu',]
+        l_hidden: [512, 512, ]
+        activation: ['elu', 'elu', ]
         out_activation: 'linear'
         out_chan_num: 1
     decoder:
         arch: fc_vec
-        l_hidden: [256, 256, 256 ]
-        activation: ['elu', 'elu', 'elu']
-        # l_hidden: [512, 512, 512, 512,]
-        # activation: ['elu', 'elu', 'elu', 'elu',]
+        l_hidden: [512, 512, ]
+        activation: ['elu', 'elu', ]
         out_activation: 'linear'
         out_chan_num: 1
-    reg_type: auxillary
-    reg_net:
-        arch: fc_vec
-        l_hidden: [128, 128,]
-        activation: ['elu', 'elu']
-        out_activation: 'linear'
-    alpha: 0.8
+    reg_type: independence
+    alpha: 0.01
     x_dim: 402
     z_dim: 1
-    w_dim: 4
+    w_dim: 2
 data:
     training:
         dataset: ToySpline2d
@@ -42,7 +32,6 @@ data:
         split: training
         data_ratio: 1
         shuffle: True
-        augmentation: True
     validation:
         dataset: ToySpline2d
         root: datasets/toy_2d/
@@ -63,16 +52,12 @@ training:
     optimizer:
         name: 'adam'
         lr: 0.0001
-        weight_decay: 0.001
-    reg_optimizer:
-        name: 'adam'
-        lr: 0.0001
     lr_schedule: null
     resume: null
     augmentations: null
     print_interval: 5
-    val_interval: 100
+    val_interval: 1000
     visualize_interval: 10000
     save_epochs: 10000
     visualization:
-        type: [] #[Spline_2d_plot_recon, Spline_2d_mannor_mod]
+        type: [Spline_2d_plot_recon]

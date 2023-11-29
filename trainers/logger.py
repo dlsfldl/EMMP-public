@@ -9,7 +9,7 @@ class BaseLogger:
     endswith('_') : scalar
     endswith('@') : image
     """
-    def __init__(self, tb_writer, endwith=[]):
+    def __init__(self, tb_writer, endwith=[], wandb_log=False):
         """tb_writer: tensorboard SummaryWriter"""
         self.writer = tb_writer
         self.endwith = endwith
@@ -17,6 +17,7 @@ class BaseLogger:
         self.val_loss_meter = averageMeter()
         self.d_train = {}
         self.d_val = {}
+        self.wandb_log = wandb_log
 
     def process_iter_train(self, d_result):
         self.train_loss_meter.update(d_result['loss'])
@@ -27,12 +28,14 @@ class BaseLogger:
         for key, val in self.d_train.items():
             if key.endswith('_'):
                 self.writer.add_scalar(key, val, i)
-                wandb.log({key: val}, step=i)
+                if self.wandb_log:
+                    wandb.log({key: val}, step=i)
             if key.endswith('@') and ('@' in self.endwith):
                 if val is not None:
                     self.writer.add_image(key, val, i)
-                    wandb_dict = {key: [wandb.Image(val)]}
-                    wandb.log(wandb_dict, step=i)
+                    if self.wandb_log:
+                        wandb_dict = {key: [wandb.Image(val)]}
+                        wandb.log(wandb_dict, step=i)
 
         result = self.d_train
         self.d_train = {}
@@ -51,12 +54,14 @@ class BaseLogger:
             if key.endswith('_'):
                 self.writer.add_scalar(key, val, i)
                 l_print_str.append(f'\t{key[:-1]}: {val:.4f}')
-                wandb.log({key: val}, step=i)
+                if self.wandb_log:
+                    wandb.log({key: val}, step=i)
             if key.endswith('@') and ('@' in self.endwith):
                 if val is not None:
                     self.writer.add_image(key, val, i)
-                    wandb_dict = {key: [wandb.Image(val)]}
-                    wandb.log(wandb_dict, step=i)
+                    if self.wandb_log:
+                        wandb_dict = {key: [wandb.Image(val)]}
+                        wandb.log(wandb_dict, step=i)
 
         print_str = ' '.join(l_print_str)
 
@@ -72,8 +77,9 @@ class BaseLogger:
         for key, val in d_result.items():
             if key.endswith('_'):
                 self.writer.add_scalar(key, val, i)
-                wandb_dict = {key: val}
-                wandb.log(wandb_dict, step=i)
+                if self.wandb_log:
+                    wandb_dict = {key: val}
+                    wandb.log(wandb_dict, step=i)
             if key.endswith('@') and ('@' in self.endwith):
                 if val is not None:
                     self.writer.add_image(key, val, i)

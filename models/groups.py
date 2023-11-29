@@ -68,6 +68,8 @@ class BaseGroup():
         n_data = len(tau)
         tau_aug_list = []
         traj_aug_list = []
+        if traj is not None:
+            original_shape = traj.shape
         if n_aug > 0:
             for i in range(n_aug):
                 g = self._random_g(batch_size=n_data).to(tau)
@@ -84,7 +86,7 @@ class BaseGroup():
             tau_aug = tau
             traj_aug = traj
         if traj is not None:
-            return tau_aug, traj_aug
+            return tau_aug, traj_aug.reshape(-1, *original_shape[1:])
         else:
             return tau_aug
     
@@ -324,31 +326,6 @@ class PlanarMobileRobot(BaseGroup):
         traj = (torch.rand(batch_size, 100, 2)*10)
         return traj
     
-    def _random_data_aug(self, tau, traj=None, n_aug=1):
-        n_data = len(tau)
-        tau_aug_list = []
-        traj_aug_list = []
-        if traj is not None:
-            original_shape = traj.shape
-        if n_aug > 0:
-            for i in range(n_aug):
-                g = self._random_g(batch_size=n_data).to(tau)
-                if traj is not None:
-                    gtau, gtraj = self.action_traj(g, tau, traj)
-                    traj_aug_list.append(gtraj)
-                else:
-                    gtau = self.action_task(g, tau)
-                tau_aug_list.append(gtau)
-            tau_aug = torch.cat(tau_aug_list, dim=0)
-            if traj is not None:
-                traj_aug = torch.cat(traj_aug_list, dim=0)
-        else:
-            tau_aug = tau
-            traj_aug = traj
-        if traj is not None:
-            return tau_aug, traj_aug.reshape(-1, *original_shape[1:])
-        else:
-            return tau_aug
     
     # squeeze_hat_w and unsqueeze_hat_w : for reduced task parameter learning of equivariant_TCVAE
     def squeeze_hat_w(self, hat_w):

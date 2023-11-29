@@ -34,6 +34,7 @@ class FC_SE3(nn.Module):
         l_hidden=None,
         activation=None,
         out_activation=None,
+        **kwargs,
     ):
         super().__init__()
         self.in_chan = in_chan
