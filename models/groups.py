@@ -10,11 +10,7 @@ class BaseGroup():
     def __init__(self) -> None:
         pass
 
-    def h_bar_inv(self, tau):
-        # return: h
-        raise NotImplementedError
-
-    def h_bar(self, tau):
+    def get_h_bar(self, tau):
         # return: h_bar
         raise NotImplementedError
     
@@ -26,8 +22,8 @@ class BaseGroup():
             traj = self._random_traj()
             htau, htraj = self.action_traj(h, tau, traj)
 
-            hbar_1 = self.get_inv(self.h_bar(tau))
-            hbar_2 = self.get_inv(self.h_bar(htau))
+            hbar_1 = self.get_inv(self.get_h_bar(tau))
+            hbar_2 = self.get_inv(self.get_h_bar(htau))
 
             tau0_1, traj0_1 = self.action_traj(hbar_1, tau, traj)
             tau0_2, traj0_2 = self.action_traj(hbar_2, htau, htraj)
@@ -151,7 +147,7 @@ class PouringGroup(BaseGroup):
         
         return torch.cat((extended_tau[:, :5], theta), dim=1)
     
-    def h_bar_inv(self, tau):
+    def get_h_bar_inv(self, tau):
         batch_size = len(tau)
         h = torch.zeros(batch_size, 4).to(tau)
         h[:, :2] = -tau[:, :2]
@@ -162,7 +158,7 @@ class PouringGroup(BaseGroup):
         h[:, 3] = -theta_2 + theta_1
         return h
         
-    def h_bar(self, tau):
+    def get_h_bar(self, tau):
         batch_size = len(tau)
         h = torch.zeros(batch_size, 4).to(tau)
         h[:, :2] = tau[:, :2]
@@ -360,7 +356,7 @@ class PlanarMobileRobot(BaseGroup):
         theta = torch.atan2(extended_tau[:, 3], extended_tau[:, 2]).unsqueeze(1)
         return torch.cat((extended_tau[:, :2], theta), dim=1)
     
-    def h_bar_inv(self, tau):
+    def get_h_bar_inv(self, tau):
         tau_theta = tau[:, -1]
         R_temp = self.rot_z(-tau_theta)
         h_rot_wall = -tau_theta
@@ -383,7 +379,7 @@ class PlanarMobileRobot(BaseGroup):
         h = torch.cat([h_rot.unsqueeze(1), h_mirror.unsqueeze(1), h_rot_wall.unsqueeze(1)], dim=1)
         return h
 
-    def h_bar(self, tau):
+    def get_h_bar(self, tau):
         tau_theta = tau[:, -1]
         R_temp = self.rot_z(-tau_theta)
         h_rot_wall = -tau_theta

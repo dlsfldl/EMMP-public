@@ -12,6 +12,7 @@ from utils.utils import label_to_color, figure_to_array, PD_metric_to_ellipse
 from torch.distributions.multivariate_normal import MultivariateNormal
 from models.base import BaseModel
 from evaluation import loss_fn
+from models.groups import BaseGroup
 
 
 pallete = ['#377eb8', '#ff7f00', '#4daf4a',
@@ -486,45 +487,48 @@ class MMP_AE(AE):
         return d_val
 
 class EMMP_VAE(MMP_VAE):
-    def __init__(self, encoder, decoder, group, beta=1.0, 
+    def __init__(self, encoder, decoder, group:BaseGroup, beta=1.0, 
                 recon_loss_fn_tr='MSE_loss', recon_loss_fn_val='RMSE_loss',
                 **regularization_dict) -> None:
         super().__init__(encoder, decoder, group, beta=1.0, 
                         recon_loss_fn_tr=recon_loss_fn_tr, recon_loss_fn_val=recon_loss_fn_val,
                         **regularization_dict)
 
-    def encode(self, x, w):
-        hat_g = self.group.project_group(w)
-        _, x_transf = self.group.action_traj(hat_g, w, x)
+    def encode(self, x, tau):
+        # hat_g = self.group.project_group(tau)
+        h_bar = self.group.get_h_bar(tau)
+        h_bar_inv = self.group.get_inv(h_bar)
+        _, x_transf = self.group.action_traj(h_bar_inv, tau, x)
         return super().encode(x_transf)
 
-    def decode(self, z, w):
-        hat_g = self.group.project_group(w)
-        hat_g_inv = self.group.get_inv(hat_g)
-        hat_w = self.group.action_task(hat_g, w)
+    def decode(self, z, tau):
+        h_bar = self.group.get_h_bar(tau)
+        h_bar_inv = self.group.get_inv(h_bar)
+        hat_tau = self.group.action_task(h_bar_inv, tau)
         
         # # For reduced task parameter learning.
-        squeezed_hat_w = self.group.squeeze_hat_w(hat_w)
-        hat_x = self.decoder(torch.cat((z, squeezed_hat_w), 1))
+        squeezed_hat_tau = self.group.squeeze_hat_tau(hat_tau)
+        hat_x = self.decoder(torch.cat((z, squeezed_hat_tau), 1))
         
         batch_size = hat_x.size()[0]
-        _, hat_x= self.group.action_traj(hat_g_inv, hat_w, hat_x)
+        _, hat_x= self.group.action_traj(h_bar, hat_tau, hat_x)
         hat_x = hat_x.reshape(batch_size, -1)
         
         return hat_x
     
-    def auxilary_loss(self, z, w):
-        hat_g = self.group.project_group(w)
-        w_0 = self.group.action_task(hat_g, w)
+    def auxilary_loss(self, z, tau):
+        hat_g = self.group.project_group(tau)
+        tau_0 = self.group.action_task(hat_g, tau)
         MSELoss = torch.nn.MSELoss()
         aux_output = self.reg_net(z)
-        squeezed_w_0 = self.group.squeeze_hat_w(w_0)
-        return MSELoss(aux_output, squeezed_w_0)
+        squeezed_tau_0 = self.group.squeeze_hat_tau(tau_0)
+        return MSELoss(aux_output, squeezed_tau_0)
 
-    def loss(self, x, w, val=False):
+    def loss(self, x, tau, val=False):
             
-        hat_g = self.group.project_group(w)
-        _, x_transf = self.group.action_traj(hat_g, w, x)
+        h_bar = self.group.get_h_bar(tau)
+        h_bar_inv = self.group.get_inv(h_bar)
+        _, x_transf = self.group.action_traj(h_bar_inv, tau, x)
         
         batch_size = len(x_transf)
         x = x.reshape(batch_size, -1)
@@ -532,7 +536,7 @@ class EMMP_VAE(MMP_VAE):
             
         z_mean_var = self.encoder(x_transf)
         z_sample = self.sample_latent(z_mean_var)
-        recon = self.decode(z_sample, w)
+        recon = self.decode(z_sample, tau)
         
         D = torch.prod(torch.tensor(x.shape[1:]))
         sig = self.decoder.sigma
@@ -564,7 +568,7 @@ class EMMP_VAE(MMP_VAE):
         if self.reg_type == 'auxillary':
             half_chan = int(z_mean_var.shape[1] / 2)
             z_mean = z_mean_var[:, :half_chan]
-            aux_loss = self.auxilary_loss(z_mean, w)
+            aux_loss = self.auxilary_loss(z_mean, tau)
             loss_dict["aux_loss"] = aux_loss
         if val == False:
             if self.reg_type == 'independence':
@@ -580,54 +584,51 @@ class EMMP_VAE(MMP_VAE):
         return loss_dict
 
 class EMMP_AE(MMP_AE):
-    def __init__(self, encoder, decoder, group, 
+    def __init__(self, encoder, decoder, group:BaseGroup, 
         recon_loss_fn_tr='MSE_loss', recon_loss_fn_val='RMSE_loss',
         **regularization_dict) -> None:
         super().__init__(encoder, decoder, group, 
                         recon_loss_fn_tr=recon_loss_fn_tr, recon_loss_fn_val=recon_loss_fn_val,
                         **regularization_dict)
 
-    def encode(self, x, w):
-        hat_g = self.group.project_group(w)
-        _, x_transf = self.group.action_traj(hat_g, w, x)
-        
-        # 221209 testing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # batch_size = len(x_transf)
-        # x_transf = x_transf.reshape(batch_size, -1)
+    def encode(self, x, tau):
+        h_bar = self.group.get_h_bar(tau)
+        h_bar_inv = self.group.get_inv(h_bar)
+        _, x_transf = self.group.action_traj(h_bar_inv, tau, x)
         
         return super().encode(x_transf)
 
-    def decode(self, z, w):
-        hat_g = self.group.project_group(w)
-        hat_g_inv = self.group.get_inv(hat_g)
-        hat_w = self.group.action_task(hat_g, w)
+    def decode(self, z, tau):
+        h_bar = self.group.get_h_bar(tau)
+        h_bar_inv = self.group.get_inv(h_bar)
+        hat_tau = self.group.action_task(h_bar_inv, tau)
         
         # # For reduced task parameter learning.
-        squeezed_hat_w = self.group.squeeze_hat_w(hat_w)
+        squeezed_hat_w = self.group.squeeze_hat_tau(hat_tau)
         hat_x = self.decoder(torch.cat((z, squeezed_hat_w), 1))
         # hat_x = super().decode(z, hat_w)
         
         batch_size = hat_x.size()[0]
         time_step = int(hat_x.size()[1]/12)
         # hat_x = hat_x.reshape(batch_size, time_step, 3, 4)
-        _, hat_x= self.group.action_traj(hat_g_inv, hat_w, hat_x)
+        _, hat_x= self.group.action_traj(h_bar, hat_tau, hat_x)
         hat_x = hat_x.reshape(batch_size, -1)
         
         return hat_x
     
-    def auxilary_loss(self, z, w):
+    def auxilary_loss(self, z, tau):
         # L1loss = torch.nn.L1Loss()
         L1loss = torch.nn.MSELoss()
-        hat_g = self.group.project_group(w)
-        hat_g_inv = self.group.get_inv(hat_g)
-        hat_w = self.group.action_task(hat_g, w)
-        squeezed_hat_w = self.group.squeeze_hat_w(hat_w)
+        h_bar = self.group.get_h_bar(tau)
+        h_bar_inv = self.group.get_inv(h_bar)
+        hat_tau = self.group.action_task(h_bar_inv, tau)
+        squeezed_hat_tau = self.group.squeeze_hat_w(hat_tau)
         aux_output = self.reg_net(z)
-        return L1loss(aux_output, squeezed_hat_w)
+        return L1loss(aux_output, squeezed_hat_tau)
     
-    def loss(self, x, w, val=False):
-        z = self.encode(x, w)
-        recon = self.decode(z, w)
+    def loss(self, x, tau, val=False):
+        z = self.encode(x, tau)
+        recon = self.decode(z, tau)
         recon_loss = self.recon_loss_fn_tr(recon, x)
         
         loss_dict = {}
@@ -635,7 +636,7 @@ class EMMP_AE(MMP_AE):
         
         
         if self.reg_type == 'auxillary':
-            aux_loss = self.auxilary_loss(z, w)
+            aux_loss = self.auxilary_loss(z, tau)
             loss_dict["aux_loss"] = aux_loss
         
         if val == False:    
