@@ -137,7 +137,7 @@ def Encoder_invariance(model, x, w, data_name, group_augment_size=100):
         group = PouringGroup()
     
     batch_size = len(x)
-    g = group._random_g(batch_size=group_augment_size)
+    g = group._random_h(batch_size=group_augment_size)
     invariance = []
     
     for idx in tqdm(range(batch_size)):
