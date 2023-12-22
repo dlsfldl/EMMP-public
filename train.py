@@ -152,7 +152,10 @@ if __name__ == "__main__":
 
     # BH: config 파일명을 basename으로 하는듯?
     config_basename = os.path.basename(args.config).split(".")[0]
-    []
+    if 'entity' in cfg.keys():
+        cfg['wandb_log'] = True
+    else:
+        cfg['wandb_log'] = False
     if hasattr(cfg, "logdir"):
         logdir = cfg["logdir"]
     else:

@@ -30,41 +30,41 @@ class AE(BaseModel):
         self.recon_loss_fn_tr=getattr(loss_fn, recon_loss_fn_tr)
         self.recon_loss_fn_val=getattr(loss_fn, recon_loss_fn_val)
         
-    def encode(self, x, w=None):
+    def encode(self, x, tau=None):
         batch_size = len(x)
         x = x.reshape(batch_size, -1)
         return self.encoder(x)
 
-    def decode(self, z, w=None):
+    def decode(self, z, tau=None):
         return self.decoder(z)
 
-    def forward(self, x, w=None):
-        z = self.encode(x, w)
-        recon = self.decode(z, w)
+    def forward(self, x, tau=None):
+        z = self.encode(x, tau)
+        recon = self.decode(z, tau)
         return recon
     
-    def loss_train(self, x, w=None):
+    def loss_train(self, x, tau=None):
         batch_size = len(x)
         x = x.reshape(batch_size, -1)
-        recon = self(x, w)
+        recon = self(x, tau)
         recon_loss = self.recon_loss_fn_tr(recon, x)
         #((recon - x) ** 2).view(len(x), -1).mean(dim=1).mean()
         loss_dict = {}
         loss_dict["recon_loss_MSE"] = recon_loss
         return loss_dict
     
-    def loss_val(self, x, w=None):
+    def loss_val(self, x, tau=None):
         batch_size = len(x)
         x = x.reshape(batch_size, -1)
-        recon = self(x, w)
+        recon = self(x, tau)
         recon_loss = self.recon_loss_fn_val(recon, x)
         #((recon - x) ** 2).view(len(x), -1).mean(dim=1).mean()
         loss_dict = {}
         loss_dict["recon_loss_RMSE"] = recon_loss
         return loss_dict
 
-    def train_step(self, x, w=None, optimizer=None, **kwargs):
-        loss_dict = self.loss_train(x, w)
+    def train_step(self, x, tau=None, optimizer=None, **kwargs):
+        loss_dict = self.loss_train(x, tau)
         loss = loss_dict["recon_loss_MSE"]
         
         optimizer.zero_grad()
@@ -73,8 +73,8 @@ class AE(BaseModel):
         
         return {"loss": loss.item()}
     
-    def validation_step(self, x, w=None, **kwargs):
-        loss_dict = self.loss_val(x, w)
+    def validation_step(self, x, tau=None, **kwargs):
+        loss_dict = self.loss_val(x, tau)
         recon_loss = loss_dict["recon_loss_RMSE"]
         loss = recon_loss
         
@@ -99,12 +99,12 @@ class VAE(AE):
     ):
         super().__init__(encoder, decoder, recon_loss_fn_tr=loss_fn, recon_loss_fn_val=recon_loss_fn_val)
 
-    def encode(self, x, w=None):
+    def encode(self, x, tau=None):
         z = self.encoder(x)
         half_chan = int(z.shape[1] / 2)
         return z[:, :half_chan]
 
-    def decode(self, z, w=None):
+    def decode(self, z, tau=None):
         return self.decoder(z)
 
     def sample_latent(self, z):
@@ -124,12 +124,12 @@ class VAE(AE):
         kl = mu_sq + sig_sq - torch.log(sig_sq) - 1
         return 0.5 * torch.sum(kl.view(len(kl), -1), dim=1)
     
-    def loss(self, x, w=None):
+    def loss(self, x, tau=None):
         batch_size = len(x)
         x = x.reshape(batch_size, -1)
         z = self.encoder(x)
         z_sample = self.sample_latent(z)
-        recon = self.decode(z_sample, w)
+        recon = self.decode(z_sample, tau)
         recon_loss = self.recon_loss_fn_tr(recon, x)
         
         ((recon - x) ** 2).view(len(x), -1).mean(dim=1).mean()
@@ -143,8 +143,8 @@ class VAE(AE):
         
         return loss_dict
     
-    def train_step(self, x, w=None, optimizer=None, **kwargs):
-        loss_dict = self.loss(x, w)      
+    def train_step(self, x, tau=None, optimizer=None, **kwargs):
+        loss_dict = self.loss(x, tau)      
         nll = loss_dict["nll"]; kl_loss = loss_dict["kl_loss"]  
         loss = nll + kl_loss
         
@@ -159,8 +159,8 @@ class VAE(AE):
             # "sigma_": self.decoder.sigma.item(),
         }
         
-    def validation_step(self, x, w=None, **kwargs):
-        loss_dict = self.loss(x, w)
+    def validation_step(self, x, tau=None, **kwargs):
+        loss_dict = self.loss(x, tau)
         recon_loss = loss_dict["recon_loss"]
         nll = loss_dict["nll"]; kl_loss = loss_dict["kl_loss"]
         
@@ -200,33 +200,33 @@ class MMP_VAE(VAE):
     def parameters(self):
         return self.list2gen(list(self.encoder.parameters()) + list(self.decoder.parameters()))
     
-    def decode(self, z, w):
-        '''outputs the mean of p(x|h, w)'''
+    def decode(self, z, tau):
+        '''outputs the mean of p(x|h, tau)'''
         # # For extended task parameter learning. 
-        extended_w = self.group.extend_w(w)
-        return self.decoder(torch.cat((z, extended_w), 1))
+        extended_tau = self.group.extend_tau(tau)
+        return self.decoder(torch.cat((z, extended_tau), 1))
 
-    def auxilary_loss(self, z, w):
+    def auxilary_loss(self, z, tau):
         MSELoss = torch.nn.MSELoss()
         aux_output = self.reg_net(z)
-        extended_w = self.group.extend_w(w)
-        return MSELoss(aux_output, extended_w)
+        extended_tau = self.group.extend_tau(tau)
+        return MSELoss(aux_output, extended_tau)
     
     def independence_loss(self, z):
         MSELoss = torch.nn.MSELoss()
-        w_random = self.group._random_task(len(z)).to(z)
-        z_pred = self.encode(self.decode(z, w_random), w_random)
+        tau_random = self.group._random_task(len(z)).to(z)
+        z_pred = self.encode(self.decode(z, tau_random), tau_random)
         znorm = z.norm(dim=1).mean()
         indep_loss = MSELoss(z, z_pred)/znorm
         return indep_loss
     
-    def loss(self, x, w=None, val=False):
+    def loss(self, x, tau=None, val=False):
         batch_size = len(x)
         x = x.reshape(batch_size, -1)
         z_mean_var = self.encoder(x)
         z_sample = self.sample_latent(z_mean_var)
-        extended_w = self.group.extend_w(w)
-        recon = self.decode(z_sample, w)
+        extended_tau = self.group.extend_tau(tau)
+        recon = self.decode(z_sample, tau)
         
         recon_loss = self.recon_loss_fn_tr(recon, x)
         D = torch.prod(torch.tensor(x.shape[1:]))
@@ -248,7 +248,7 @@ class MMP_VAE(VAE):
         if self.reg_type == 'auxillary':
             half_chan = int(z_mean_var.shape[1] / 2)
             z_mean = z_mean_var[:, :half_chan]
-            aux_loss = self.auxilary_loss(z_mean, w)
+            aux_loss = self.auxilary_loss(z_mean, tau)
             loss_dict["aux_loss"] = aux_loss
         if val == False:
             if self.reg_type == 'independence':
@@ -265,9 +265,9 @@ class MMP_VAE(VAE):
             
         return loss_dict
     
-    def train_step(self, x, w=None, optimizer=None, **kwargs):
+    def train_step(self, x, tau=None, optimizer=None, **kwargs):
         optimizer.zero_grad()
-        loss_dict = self.loss(x, w)      
+        loss_dict = self.loss(x, tau)      
         nll = loss_dict["nll"]; kl_loss = loss_dict["kl_loss"]
         recon_loss = loss_dict["recon_loss"]
         max_grad_norm = 1
@@ -283,8 +283,8 @@ class MMP_VAE(VAE):
                     torch.nn.utils.clip_grad_norm_(group['params'], max_grad_norm, norm_type)
             optimizer.step()
             self.reg_optimizer.zero_grad()
-            z_mean = self.encode(x, w)
-            aux_loss = self.auxilary_loss(z_mean, w)
+            z_mean = self.encode(x, tau)
+            aux_loss = self.auxilary_loss(z_mean, tau)
             aux_loss.backward()
             if max_grad_norm > 0:
                 for group in self.reg_optimizer.param_groups:
@@ -323,8 +323,8 @@ class MMP_VAE(VAE):
             d_train['indep_loss_'] = indep_loss.item()
         return d_train
     
-    def validation_step(self, x, w=None, **kwargs):
-        loss_dict = self.loss(x, w, val=True)
+    def validation_step(self, x, tau=None, **kwargs):
+        loss_dict = self.loss(x, tau, val=True)
         recon_loss = loss_dict["recon_loss"]
         nll = loss_dict["nll"]; kl_loss = loss_dict["kl_loss"]
         loss = recon_loss
@@ -369,25 +369,25 @@ class MMP_AE(AE):
     def parameters(self):
         return self.list2gen(list(self.encoder.parameters()) + list(self.decoder.parameters()))
     
-    def decode(self, z, w):
-        '''outputs the mean of p(x|h, w)'''
+    def decode(self, z, tau):
+        '''outputs the mean of p(x|h, tau)'''
         # # For extended task parameter learning. 
-        extended_w = self.group.extend_w(w)
+        extended_tau = self.group.extend_tau(tau)
         
-        return self.decoder(torch.cat((z, extended_w), dim=1))
-        # return self.decoder(torch.cat((z, w), 1))
+        return self.decoder(torch.cat((z, extended_tau), dim=1))
+        # return self.decoder(torch.cat((z, tau), 1))
 
-    def auxilary_loss(self, z, w):
+    def auxilary_loss(self, z, tau):
         # L1loss = torch.nn.L1Loss()
         MSELoss = torch.nn.MSELoss()
         aux_output = self.reg_net(z)
-        extended_w = self.group.extend_w(w)
-        return MSELoss(aux_output, extended_w)
+        extended_tau = self.group.extend_tau(tau)
+        return MSELoss(aux_output, extended_tau)
     
     def independence_loss(self, z):
         MSELoss = torch.nn.MSELoss()
-        w_random = self.group._random_task(len(z)).to(z)
-        z_pred = self.encode(self.decode(z, w_random), w_random)
+        tau_random = self.group._random_task(len(z)).to(z)
+        z_pred = self.encode(self.decode(z, tau_random), tau_random)
         # znorm = z.norm(dim=1).mean()
         # indep_loss = MSELoss(z, z_pred)/znorm
         znorm = z.norm(dim=1).mean()
@@ -395,17 +395,17 @@ class MMP_AE(AE):
         return indep_loss
         
     
-    def loss(self, x, w=None, val=False):
+    def loss(self, x, tau=None, val=False):
         z = self.encode(x)
-        recon = self.decode(z, w)
+        recon = self.decode(z, tau)
         recon_loss = self.recon_loss_fn_tr(recon, x)
-        # extended_w = self.group.extend_w(w)
+        # extended_tau = self.group.extend_tau(tau)
         
         loss_dict = {}
         loss_dict["recon_loss"] = recon_loss
         
         if self.reg_type == 'auxillary':
-            aux_loss = self.auxilary_loss(z, w)
+            aux_loss = self.auxilary_loss(z, tau)
             loss_dict["aux_loss"] = aux_loss
         if val == False:    
             if self.reg_type == 'independence':
@@ -416,9 +416,9 @@ class MMP_AE(AE):
             loss_dict["indep_loss"] = indep_loss
         return loss_dict
     
-    def train_step(self, x, w=None, optimizer=None, **kwargs):
+    def train_step(self, x, tau=None, optimizer=None, **kwargs):
         optimizer.zero_grad()
-        loss_dict = self.loss(x, w)
+        loss_dict = self.loss(x, tau)
         recon_loss = loss_dict["recon_loss"]
         max_grad_norm = 1
         norm_type = 2
@@ -433,8 +433,8 @@ class MMP_AE(AE):
                     torch.nn.utils.clip_grad_norm_(group['params'], max_grad_norm, norm_type)
             optimizer.step()
             self.reg_optimizer.zero_grad()
-            z = self.encode(x, w)
-            aux_loss = self.auxilary_loss(z, w)
+            z = self.encode(x, tau)
+            aux_loss = self.auxilary_loss(z, tau)
             aux_loss.backward()
             if max_grad_norm > 0:
                 for group in self.reg_optimizer.param_groups:
@@ -466,8 +466,8 @@ class MMP_AE(AE):
             d_train['indep_loss_'] = indep_loss.item()
         return d_train
         
-    def validation_step(self, x, w=None, **kwargs):
-        loss_dict = self.loss(x, w, val=True)
+    def validation_step(self, x, tau=None, **kwargs):
+        loss_dict = self.loss(x, tau, val=True)
         recon_loss = loss_dict["recon_loss"] 
         
         loss = recon_loss
@@ -604,9 +604,8 @@ class EMMP_AE(MMP_AE):
         hat_tau = self.group.action_task(h_bar_inv, tau)
         
         # # For reduced task parameter learning.
-        squeezed_hat_w = self.group.squeeze_hat_tau(hat_tau)
-        hat_x = self.decoder(torch.cat((z, squeezed_hat_w), 1))
-        # hat_x = super().decode(z, hat_w)
+        squeezed_hat_tau = self.group.squeeze_hat_tau(hat_tau)
+        hat_x = self.decoder(torch.cat((z, squeezed_hat_tau), 1))
         
         batch_size = hat_x.size()[0]
         time_step = int(hat_x.size()[1]/12)
@@ -622,7 +621,7 @@ class EMMP_AE(MMP_AE):
         h_bar = self.group.get_h_bar(tau)
         h_bar_inv = self.group.get_inv(h_bar)
         hat_tau = self.group.action_task(h_bar_inv, tau)
-        squeezed_hat_tau = self.group.squeeze_hat_w(hat_tau)
+        squeezed_hat_tau = self.group.squeeze_hat_tau(hat_tau)
         aux_output = self.reg_net(z)
         return L1loss(aux_output, squeezed_hat_tau)
     

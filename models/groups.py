@@ -126,16 +126,16 @@ class PouringGroup(BaseGroup):
         X = Xlong.reshape(batch_size, 100, 4, 4)
         return X
     
-    # squeeze_hat_w and unsqueeze_hat_w : for reduced task parameter learning of equivariant_TCVAE
-    def squeeze_hat_h(self, hat_h):
-        return hat_h[:, [2, 4]]
+    # squeeze_hat_tau and unsqueeze_hat_tau : for reduced task parameter learning of EMMP
+    def squeeze_hat_tau(self, hat_tau):
+        return hat_tau[:, [2, 4]]
     
     def unsqueeze_hat_tau(self, squeezed_hat_tau):
         batch_size = len(squeezed_hat_tau)
         temp = torch.zeros((batch_size, 1))
         return torch.cat([temp, temp, squeezed_hat_tau[:, 0], temp, squeezed_hat_tau[:, 1], temp], dim=1)
     
-    # extended_w and unextended_w : for extended task parameter learning of TCVAE
+    # extended_tau and unextended_tau : for extended task parameter learning of MMP, TCVAE
     def extend_tau(self, tau):
         theta = tau[:, 5]
         cos_theta = torch.cos(theta).unsqueeze(1); sin_theta = torch.sin(theta).unsqueeze(1)
@@ -228,7 +228,6 @@ class PouringGroup(BaseGroup):
         T_screw = lie.exp_se3(S * theta_1.unsqueeze(1))
         traj_after_screw_motion = torch.einsum('ijk, ihkl -> ihjl', T_screw, traj)
         htraj = torch.einsum('ijkl, ilh -> ijkh', traj_after_screw_motion, self.rot_z(theta_2))
-        # gtraj = T_screw.unsqueeze(1) @ traj @ self.rot_z(theta_2)
         htraj[:, :, 0, -1] += h[:, 0].unsqueeze(1)
         htraj[:, :, 1, -1] += h[:, 1].unsqueeze(1)
         if dim12:
@@ -334,7 +333,7 @@ class PlanarMobileRobot(BaseGroup):
         return traj
     
     
-    # squeeze_hat_w and unsqueeze_hat_w : for reduced task parameter learning of equivariant_TCVAE
+    # squeeze_hat_tau and unsqueeze_hat_tau : for reduced task parameter learning of EMMP
     def squeeze_hat_tau(self, hat_tau):
         return hat_tau[:, :2]
     
@@ -343,7 +342,7 @@ class PlanarMobileRobot(BaseGroup):
         temp = torch.zeros((batch_size, 1)).to(squeezed_hat_tau)
         return torch.cat((squeezed_hat_tau, temp), dim=1)
     
-    # extended_w and unextended_w : for extended task parameter learning of TCVAE
+    # extended_tau and unextended_tau : for extended task parameter learning of MMP, TCVAE
     def extend_tau(self, tau):
         if tau.shape[-1] == 2:
             tau = self.unsqueeze_hat_tau(tau)
@@ -382,7 +381,7 @@ class PlanarMobileRobot(BaseGroup):
     def get_h_bar(self, tau):
         tau_theta = tau[:, -1]
         R_temp = self.rot_z(-tau_theta)
-        h_rot_wall = -tau_theta
+        h_rot_wall = tau_theta
         xy_temp = (R_temp @ tau[:, :2].unsqueeze(-1)).squeeze(-1)
         
         batch_size = len(tau)
@@ -406,7 +405,7 @@ class PlanarMobileRobot(BaseGroup):
     
     def get_inv(self, h):
         hinv = h.clone()
-        hinv[h[:, 1] == 0, 0] =(-h[h[:, 1] == 0, 0]) % 4
+        hinv[h[:, 1] == 0, 0] = (-h[h[:, 1] == 0, 0]) % 4
         hinv[:, 2] = -hinv[:, 2]
         return hinv
     
