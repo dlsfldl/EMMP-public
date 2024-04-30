@@ -1,0 +1,75 @@
+data:
+  test:
+    batch_size: 75
+    dataset: Pouring
+    n_workers: 4
+    root: datasets/
+    shuffle: true
+    skip_size: 1
+    split: test
+  training:
+    augmentation: false
+    batch_size: 75
+    dataset: Pouring
+    n_workers: 4
+    root: datasets/
+    shuffle: true
+    skip_size: 1
+    split: training
+  validation:
+    batch_size: 75
+    dataset: Pouring
+    n_workers: 4
+    root: datasets/
+    shuffle: true
+    skip_size: 1
+    split: validation
+device: cuda:0
+logdir: results/Pouring/EMMP/AE/
+logger:
+  endwith:
+  - '#'
+  type: base
+model:
+  alpha: 0.01
+  arch: emmp_ae
+  decoder:
+    activation:
+    - elu
+    - elu
+    arch: fc_se3
+    l_hidden:
+    - 168
+    - 168
+    out_activation: linear
+  encoder:
+    activation:
+    - elu
+    - elu
+    arch: fc_vec
+    l_hidden:
+    - 168
+    - 168
+    out_activation: linear
+  recon_loss_fn_tr: MSE_loss_SE3
+  reg_type: independence
+  w_dim: 2
+  x_dim: 5760
+  z_dim: 2
+trainer: base
+training:
+  augmentations: null
+  lr_schedule: null
+  n_epoch: 200000
+  optimizer:
+    lr: 0.0001
+    name: adam
+    weight_decay: 0
+  print_interval: 5
+  resume: null
+  save_epochs: 10000
+  val_interval: 100
+  visualization:
+    type:
+    - Pouring_recon_train_val
+  visualize_interval: 10000

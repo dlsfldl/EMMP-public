@@ -1,0 +1,73 @@
+data:
+  test:
+    batch_size: 40
+    dataset: ToySpline2d
+    n_workers: 4
+    root: datasets/toy_2d/
+    shuffle: true
+    split: test
+  training:
+    batch_size: 75
+    data_ratio: 1
+    dataset: ToySpline2d
+    n_workers: 4
+    root: datasets/toy_2d/
+    shuffle: true
+    split: training
+  validation:
+    batch_size: 80
+    dataset: ToySpline2d
+    n_workers: 4
+    root: datasets/toy_2d/
+    shuffle: true
+    split: validation
+device: cuda:0
+logdir: results/Toy2D/EMMP/AE/
+logger:
+  endwith:
+  - '#'
+  type: base
+model:
+  alpha: 0.01
+  arch: emmp_ae
+  decoder:
+    activation:
+    - elu
+    - elu
+    arch: fc_vec
+    l_hidden:
+    - 512
+    - 512
+    out_activation: linear
+    out_chan_num: 1
+  encoder:
+    activation:
+    - elu
+    - elu
+    arch: fc_vec
+    l_hidden:
+    - 512
+    - 512
+    out_activation: linear
+    out_chan_num: 1
+  reg_type: independence
+  w_dim: 2
+  x_dim: 402
+  z_dim: 1
+trainer: base
+training:
+  augmentations: null
+  lr_schedule: null
+  n_epoch: 200000
+  optimizer:
+    lr: 0.0001
+    name: adam
+    weight_decay: 0.005
+  print_interval: 5
+  resume: null
+  save_epochs: 10000
+  val_interval: 1000
+  visualization:
+    type:
+    - Spline_2d_plot_recon
+  visualize_interval: 10000

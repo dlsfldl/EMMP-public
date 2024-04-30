@@ -26,11 +26,43 @@ The project is developed under a standard PyTorch environment.
 
 
 ### Datasets
-Datasets should be stored in `datasets/` directory. Datasets can be downloaded through the [Google drive link](https://drive.google.com/file/d/1oHH_yqBvNfafdcdVcDIafaGolj_tLhno/view?usp=drive_link).
+Datasets should be stored in `datasets/` directory.
+We generated two novel datasets for goal reaching in 2D and pouring in SE(3),
+which can be downloaded through following links;
+[Toy2D dataset](https://drive.google.com/file/d/1s3ZmuiIWnQXRpZZvrfxGueqm95xa1yu9/view?usp=sharing)
+and [Pouring dataset](https://drive.google.com/file/d/1nYkC_-DH-x6-eE69Fc-gN2W5nDtzAp2J/view?usp=sharing).
 
-## How to run
-### Train
-```$python train.py --config configs\2D_Toy\EMMP\EMMP_ae_noreg.yml```
+
+### Pretrained model
+Pre-trained models should be stored in `pretrained/`. The pre-trained models are already provided in this repository.
+
+
+
+## Running
+### Training
+The training script is `train.py`. 
+- `--config` specifies a path to a configuration yml file.
+- `--logdir` specifies a directory where the results will be saved.
+- `--run` specifies a name for an experiment.
+- `--device` specifies an GPU number to use. Default is 0.
+
+Training code for EMMP is as follows:
+```
+python train.py --config configs/2D_Toy/EMMP_ae_noreg.yml
+```
+or
+```
+python train.py --config configs/Pouring/EMMP_ae_noreg.yml
+```
+
+We log the intermediate process using both tensorboard and wandb.
+- If you want to see the results of the intermediate training process in tensorboard, run this code:
+  ```
+  tensorboard --logdir train_results/{X}_config --host {ip address}
+  ```
+- If you want to use wandb, add `wandb_project_name` and `entity` in each config file.
+
+
 
 
 <!-- 
