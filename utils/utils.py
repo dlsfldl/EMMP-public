@@ -9,6 +9,8 @@ import glob
 import re
 import utils.LieGroup_torch as lie
 import errno
+from.LieGroup_torch import exp_so3, log_SO3, skew
+from scipy import signal
 
 def save_yaml(filename, text):
     """parse string as yaml then dump as a file"""
@@ -233,3 +235,45 @@ def load_pouring_traj(root='datasets/Pouring/new', r=None, w=None, m=None, retur
         return np.array(traj_selected), file_selected
     else:
         return np.array(traj_selected)
+
+def SE3smoothing(traj, mode='moving_average'):
+    # input size = (bs, n, 4, 4)
+    bs = len(traj)
+    n = traj.shape[1]
+    if mode == 'moving_average':
+        R1 = traj[:, :-1, :3, :3].reshape(-1, 3, 3)
+        R2 = traj[:, 1:, :3, :3].reshape(-1, 3, 3)
+        p1 = traj[:, :-1, :3, 3:]
+        p2 = traj[:, 1:, :3, 3:]
+        
+        R = R1@exp_so3(0.5*log_SO3(R1.permute(0,2,1)@R2))
+        R = R.view(bs, -1, 3, 3)
+        p = (p1+p2)/2
+        
+        traj = torch.cat([
+                torch.cat([
+                    traj[:, 0:1, :3, :],
+                    torch.cat([R, p], dim=-1)  
+                ], dim=1),
+            traj[:, :, 3:4, :]
+            ], dim=2)
+    elif mode == 'savgol':
+        traj_device = traj.device
+        traj = traj.detach().cpu()
+        window_length = 50
+        polyorder = 3
+        R = (traj[:, :, :3, :3]) # size = (bs, n, 3, 3)
+        w = skew(log_SO3(R.reshape(-1, 3, 3))).reshape(bs, n, 3)
+        w = signal.savgol_filter(w, window_length=window_length, polyorder=polyorder, mode="nearest", axis=1)
+        w = torch.from_numpy(w).to(traj)
+        R = exp_so3(w.reshape(-1, 3)).reshape(bs, n, 3, 3)
+        p = (traj[:, :, :3, 3:]) # size = (bs, n, 3, 1)
+        p = signal.savgol_filter(p, window_length=window_length, polyorder=polyorder, mode="nearest", axis=1)
+        p = torch.from_numpy(p).to(traj)
+        traj = torch.cat(
+            [torch.cat([R, p], dim=-1), 
+            torch.zeros(bs, n, 1, 4).to(traj)]
+            , dim=2)
+        traj[..., -1, -1] = 1
+        traj = traj.to(traj_device)
+    return traj

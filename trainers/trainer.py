@@ -5,7 +5,6 @@ import math
 import numpy as np
 import torch
 from metrics import averageMeter
-# from evaluation.evaluation_tools import eval_log_likelihood
 
 class BaseTrainer:
     """Trainer for a conventional iterative training of model for classification"""

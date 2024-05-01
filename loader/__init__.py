@@ -2,7 +2,7 @@ import torch
 from torch.utils import data
 import loader
 from loader.toy_2d_dataset import ToySpline2d
-from loader.Pouring_dataset import Pouring, simple_Pouring
+from loader.Pouring_dataset import Pouring
 from loader.latent_dataset import LatentDataset
 
 def get_dataloader(data_dict, **kwargs):
