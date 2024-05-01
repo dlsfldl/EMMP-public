@@ -7,7 +7,6 @@ from functools import partial
 import os
 import glob
 import re
-import utils.LieGroup_torch as lie
 import errno
 from.LieGroup_torch import exp_so3, log_SO3, skew
 from scipy import signal

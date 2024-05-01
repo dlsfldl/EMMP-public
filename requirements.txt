@@ -5,5 +5,5 @@ tensorboardX
 omegaconf
 scikit-learn
 wandb
-pexpect
+# pexpect
 # pytorch

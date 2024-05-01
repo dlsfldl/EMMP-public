@@ -1,7 +1,7 @@
 import os, sys
 import numpy as np
 import open3d as o3d
-
+import torch
 from copy import deepcopy
 
 
@@ -96,3 +96,21 @@ def visualize_pouring_traj(traj, bottle_idx, mug_idx, skip_size=5):
     # finish visualizer
     vis.run()
     vis.destroy_window()
+
+def interpolate_z(t, z_points):
+    num_window = len(z_points)-1
+    start_idx = int(t * num_window)
+    ratio = t * num_window - start_idx
+    z0 = z_points[start_idx]
+    z1 = z_points[start_idx+1]
+    z_interp = z0 + ratio * (z1 - z0)
+    return z_interp
+
+def get_closest_z_pouring(tau:torch.Tensor, tau_data_list:torch.Tensor, z_points_list:torch.Tensor) -> torch.Tensor:
+    r = (tau[2:4] - tau[0:2]).norm()
+    w = tau[4]
+    rdist = (r.unsqueeze(0) - tau_data_list[:, 0]).abs()
+    wdist = (w.unsqueeze(0) - tau_data_list[:, 1]).abs()
+    dist = rdist + wdist
+    min_idx = dist.argmin()
+    return z_points_list[min_idx], tau_data_list[min_idx]

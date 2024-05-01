@@ -19,7 +19,8 @@ import matplotlib.pyplot as plt
 from vis_utils.open3d_utils import (
     get_mesh_bottle, 
     get_mesh_mug, 
-    visualize_pouring_traj
+    get_closest_z_pouring,
+    interpolate_z,
 )
 import platform
 import glob
@@ -56,6 +57,11 @@ class AppWindow:
             root=args.pretrained_root
         )
         self.model.to(self.device)
+        with open(os.path.join(args.pretrained_root, args.identifier, 'manifold_interpolation.pkl'), 'rb') as f:
+            dict_pkl = pickle.load(f)
+        self.tau_data_list = dict_pkl['tau_data_list'].to(self.device)
+        self.z_points_list = dict_pkl['z_points_list'].to(self.device)
+        
         # Setup Dataloader
         data_dict = {
             'dataset': 'Pouring',
@@ -68,21 +74,26 @@ class AppWindow:
             'augmentation': True,
             }
         self.dataloader = get_dataloader(data_dict)
-        self.gmm, _ = get_optimized_GMM_latent(self.model, self.dataloader)
-        sample_size_big = 10000
-        # below part is added since the GMM samples are same everytime.
-        randidx = torch.randperm(sample_size_big)
-        self.z_sample_all = self.gmm.sample(sample_size_big)[0][randidx]
-        self.current_sample_idx = 0
+        # self.gmm, _ = get_optimized_GMM_latent(self.model, self.dataloader)
+        # sample_size_big = 10000
+        # # below part is added since the GMM samples are same everytime.
+        # randidx = torch.randperm(sample_size_big)
+        # self.z_sample_all = self.gmm.sample(sample_size_big)[0][randidx]
+        # self.current_sample_idx = 0
         
         # Variables initialization
         self.target_fps = 60
         self.dt_video = 1 / self.target_fps
-        self.skip_size = 5
+        self.skip_size = 25
         self.rot_bottle = torch.tensor(0.0)
-        self.tau = torch.tensor([0.0, 0.0, 0.6, 0.0, 0.2, 1.0, 0.0]).to(self.device)
+        # self.tau = torch.tensor([0.0, 0.0, 0.6, 0.0, 0.2, 1.0, 0.0]).to(self.device)
+        self.tau = torch.tensor([0.0, 0.0, 0.6, 0.0, 0.2, 0.0]).to(self.device)
         self.traj = None
         self.mug_T = torch.eye(4)
+        self.z_points, self.tau_data = get_closest_z_pouring(self.tau, self.tau_data_list, self.z_points_list)
+        self.t_interpolate = 0.5
+        # breakpoint()
+        self.z_t = interpolate_z(self.t_interpolate, self.z_points.flip(0), )
         
         
         # Thread initialization
@@ -90,7 +101,7 @@ class AppWindow:
         self.thread_video = threading.Thread(target=self.update_trajectory_video, daemon=True)
 
         # parameters 
-        image_size = [1024, 768]
+        image_size = [1680, 960]
         
         # mesh table
         self.mesh_box = o3d.geometry.TriangleMesh.create_box(
@@ -151,19 +162,29 @@ class AppWindow:
         inference_config = gui.CollapsableVert("Inference config", 0.25 * em,
                                         gui.Margins(em, 0, 0, 0))
         
-        # sample
-        self._sample_button = gui.Button("Sample!")
-        self._sample_button.horizontal_padding_em = 0.5
-        self._sample_button.vertical_padding_em = 0
-        self._sample_button.set_on_clicked(self._set_sampler)
-        h = gui.Horiz(0.25 * em)  # row 1
-        h.add_stretch()
-        h.add_child(self._sample_button)
-        h.add_stretch()
-
+        # skip size
+        self._interpolate_t_slider = gui.Slider(gui.Slider.DOUBLE)
+        self._interpolate_t_slider.set_limits(0.001, 0.999)
+        self._interpolate_t_slider.double_value = float(self.t_interpolate)
+        self._interpolate_t_slider.set_on_value_changed(self._set_t_interpolate)
+        
         # add
-        inference_config.add_child(gui.Label("Sample bottle trajectory"))
-        inference_config.add_child(h)
+        inference_config.add_fixed(separation_height)
+        inference_config.add_child(gui.Label("t_interpolate"))
+        inference_config.add_child(self._interpolate_t_slider)
+        # # sample
+        # self._sample_button = gui.Button("Sample!")
+        # self._sample_button.horizontal_padding_em = 0.5
+        # self._sample_button.vertical_padding_em = 0
+        # self._sample_button.set_on_clicked(self._set_sampler)
+        # h = gui.Horiz(0.25 * em)  # row 1
+        # h.add_stretch()
+        # h.add_child(self._sample_button)
+        # h.add_stretch()
+
+        # # add
+        # inference_config.add_child(gui.Label("Sample bottle trajectory"))
+        # inference_config.add_child(h)
         
         # Visualize type
         self._video_button = gui.Button("Video")
@@ -315,6 +336,7 @@ class AppWindow:
         self.mesh_mug.paint_uniform_color(rgb[2] * 0.6)
         self.mesh_mug.compute_vertex_normals()
 
+        self._set_sampler()
     
     def end_thread(self, thread:threading.Thread):
         self.event.set()
@@ -361,41 +383,73 @@ class AppWindow:
         self.update_trajectory()
 
     def _set_skip_size(self, value):
-        # self.remove_trajectory()
         self.skip_size = int(value)
-        
+        self.reset_threads()
+        self.remove_trajectory()
+        self.sample_trajectories()
+        self.update_trajectory()
+    
+    def _set_t_interpolate(self, value):
+        self.t_interpolate = value
+        self.reset_threads()
+        self.remove_trajectory()
+        self.sample_trajectories()
+        self.update_trajectory()
+    
     def _set_cup_x(self, value):
         self.tau[0] = float(value) / 100
         self.mug_T[0, 3] = self.tau[0]
+        self.reset_threads()
+        self.remove_trajectory()
         self.sample_trajectories()
+        self.update_trajectory()
 
     def _set_cup_y(self, value):
         self.tau[1] = float(value) / 100
         self.mug_T[1, 3] = self.tau[1]
+        self.reset_threads()
+        self.remove_trajectory()
         self.sample_trajectories()
+        self.update_trajectory()
         
     def _set_bottle_x(self, value):
         self.tau[2] = float(value) / 100
+        self.reset_threads()
+        self.remove_trajectory()
         self.sample_trajectories()
+        self.update_trajectory()
 
     def _set_bottle_y(self, value):
         self.tau[3] = float(value) / 100
+        self.reset_threads()
+        self.remove_trajectory()
         self.sample_trajectories()
+        self.update_trajectory()
         
     def _set_water_weight(self, value):
         self.tau[4] = float(value) / 1000
+        self.reset_threads()
+        self.remove_trajectory()
         self.sample_trajectories()
+        self.update_trajectory()
     
     def _set_bottle_rot(self, value):
         self.rot_bottle = torch.tensor(float(value) / 180 * np.pi)
-        self.tau[5] = torch.cos(self.rot_bottle)
-        self.tau[6] = torch.sin(self.rot_bottle)
+        # self.tau[5] = torch.cos(self.rot_bottle)
+        # self.tau[6] = torch.sin(self.rot_bottle)
+        self.tau[5] = self.rot_bottle
+        self.reset_threads()
+        self.remove_trajectory()
         self.sample_trajectories()
+        self.update_trajectory()
         
 
     def sample_trajectories(self):
-        z_gen = self.z_sample_all[self.current_sample_idx]
-        z_gen = torch.from_numpy(z_gen).to(torch.float).to(self.device).unsqueeze(0)
+        # z_gen = self.z_sample_all[self.current_sample_idx]
+        # z_gen = torch.from_numpy(z_gen).to(torch.float).to(self.device).unsqueeze(0)
+        self.z_points, self.tau_data = get_closest_z_pouring(self.tau, self.tau_data_list, self.z_points_list)
+        self.z_t = interpolate_z(self.t_interpolate, self.z_points.flip(0), ).to(self.device)
+        z_gen = self.z_t.reshape(1, -1)
         tau = self.tau.unsqueeze(0)
         x_gen = self.model.decode(z_gen, tau).detach().cpu()
         T_gen = x_gen[0].reshape(-1, 3, 4)
@@ -404,7 +458,6 @@ class AppWindow:
         self.traj = T_gen
         # smoothing
         self.traj = SE3smoothing(self.traj.unsqueeze(0), mode='savgol').squeeze()
-        self.current_sample_idx += 1
 
 
     def update_trajectory(self):
