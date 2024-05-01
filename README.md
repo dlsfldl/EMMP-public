@@ -48,17 +48,17 @@ The training script is `train.py`.
 
 Training code for EMMP is as follows:
 ```
-python train.py --config configs/2D_Toy/EMMP_ae_noreg.yml
+python train.py --config configs/2D_Toy/EMMP/EMMP_ae_noreg.yml
 ```
 or
 ```
-python train.py --config configs/Pouring/EMMP_ae_noreg.yml
+python train.py --config configs/Pouring/EMMP/EMMP_ae_noreg.yml
 ```
 
 We log the intermediate process using both tensorboard and wandb.
 - If you want to see the results of the intermediate training process in tensorboard, run this code:
   ```
-  tensorboard --logdir train_results/{X}_config --host {ip address}
+  tensorboard --logdir results/{PATH} --host {ip address}
   ```
 - If you want to use wandb, add `wandb_project_name` and `entity` in each config file.
 
