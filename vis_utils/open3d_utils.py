@@ -1,7 +1,8 @@
-import os
+import os, sys
 import numpy as np
 import open3d as o3d
 
+from copy import deepcopy
 
 
 def get_mesh_bottle(root, bottle_idx=1):
@@ -48,3 +49,50 @@ def get_mesh_mug(root, mug_idx=1):
     min_z_mug = vertices_mug_numpy[:, 2].min()
     mesh_mug.translate([0, (-mug_width_outer/2 - min_y_mug), -min_z_mug])
     return mesh_mug
+
+def visualize_pouring_traj(traj, bottle_idx, mug_idx, skip_size=5):
+    vis = o3d.visualization.Visualizer()
+    vis.create_window(width=1924, height=1209)
+    
+    frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+    
+    # load bottle
+    mesh_bottle = get_mesh_bottle(root='./3dmodels/bottles', bottle_idx=bottle_idx)
+    mesh_bottle.compute_vertex_normals()
+    
+    # load mug
+    mesh_mug = get_mesh_mug(root='./3dmodels/mugs', mug_idx=mug_idx)
+    mesh_mug.compute_vertex_normals()
+    
+    # mesh table
+    mesh_box = o3d.geometry.TriangleMesh.create_box(width=2, height=2, depth=0.03)
+    mesh_box.translate([-1, -1, -0.03])
+    mesh_box.paint_uniform_color([222/255,184/255,135/255])
+    mesh_box.compute_vertex_normals()
+    
+    ## camera
+    camera = o3d.io.read_pinhole_camera_parameters("vis_utils/cam_mani.json")
+    ctr = vis.get_view_control()
+    ctr.convert_from_pinhole_camera_parameters(camera)
+    camera = vis.get_view_control().convert_to_pinhole_camera_parameters()
+    
+    # update geometry
+    vis.add_geometry(frame)
+    vis.add_geometry(mesh_mug)
+    vis.add_geometry(mesh_box)
+
+    for idx in range(0, len(traj), skip_size):
+        mesh_bottle_ = deepcopy(mesh_bottle)
+        frame_ = deepcopy(frame)
+        T = traj[idx]
+        mesh_bottle_.transform(T)
+        frame_.transform(T)
+        vis.add_geometry(mesh_bottle_)
+        vis.add_geometry(frame_)
+    vis.poll_events()
+    vis.update_renderer()
+    ctr.convert_from_pinhole_camera_parameters(camera)
+
+    # finish visualizer
+    vis.run()
+    vis.destroy_window()

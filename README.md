@@ -63,6 +63,11 @@ We log the intermediate process using both tensorboard and wandb.
 - If you want to use wandb, add `wandb_project_name` and `entity` in each config file.
 
 
+### Visualizing the learned models in a simulation environment
+You can run open3d simulation of trained model as follows:
+```
+python visualize_emmp.py -p pretrained/Pouring/EMMP/AE -i noreg -co EMMP_ae_noreg.yml -ck model_best.pkl --device any
+``` 
 
 
 <!-- 

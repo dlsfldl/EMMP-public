@@ -34,7 +34,6 @@ class AppWindow:
 
         # argparser
         parser = argparse.ArgumentParser()
-        parser.add_argument("--skip_size", type=int, default=5)
         parser.add_argument("--pretrained_root", "-p", default='pretrained/Pouring/EMMP/AE')
         parser.add_argument("--identifier", "-i", default="noreg")
         parser.add_argument("--config_file", "-co", default="EMMP_ae_noreg.yml")
@@ -79,8 +78,8 @@ class AppWindow:
         # Variables initialization
         self.target_fps = 60
         self.dt_video = 1 / self.target_fps
-        self.skip_size = args.skip_size
-        self.rot_bottle = 0
+        self.skip_size = 5
+        self.rot_bottle = torch.tensor(0.0)
         self.tau = torch.tensor([0.0, 0.0, 0.6, 0.0, 0.2, 1.0, 0.0]).to(self.device)
         self.traj = None
         self.mug_T = torch.eye(4)
@@ -100,10 +99,6 @@ class AppWindow:
         self.mesh_box.translate([-1, -1, -0.03])
         self.mesh_box.paint_uniform_color([222/255,184/255,135/255])
         self.mesh_box.compute_vertex_normals()
-
-        # # bottle label
-        # self.draw_bottle_label = True
-        # self.bottle_label_angle = 0
 
         # frame
         self.frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
@@ -189,23 +184,6 @@ class AppWindow:
         inference_config.add_child(gui.Label("Visualize type"))
         inference_config.add_child(h)
 
-        # # text
-        # self._text_editor = gui.TextEdit()
-        # self._text_editor.set_on_value_changed(self._set_text)
-        
-        # # add
-        # inference_config.add_fixed(separation_height)
-        # inference_config.add_child(gui.Label("Text editor (press enter)"))
-        # inference_config.add_child(self._text_editor)
-
-        # # text
-        # self._current_text = gui.TextEdit()
-        
-        # # add
-        # inference_config.add_fixed(separation_height)
-        # inference_config.add_child(gui.Label("Current text"))
-        # inference_config.add_child(self._current_text)
-
         # skip size
         self._skip_size_silder = gui.Slider(gui.Slider.INT)
         self._skip_size_silder.set_limits(1, 100)
@@ -279,17 +257,6 @@ class AppWindow:
         inference_config.add_child(gui.Label("WW(200~410), BR in degrees"))
         inference_config.add_child(h)
 
-
-        # # bottle label angle
-        # self._bottle_label_angle_silder = gui.Slider(gui.Slider.DOUBLE)
-        # self._bottle_label_angle_silder.set_limits(0, 2 * np.pi)
-        # self._bottle_label_angle_silder.set_on_value_changed(self._set_bottle_label_angle)
-        
-        # # add
-        # inference_config.add_fixed(separation_height)
-        # inference_config.add_child(gui.Label("Bottle label angle"))
-        # inference_config.add_child(self._bottle_label_angle_silder)
-
         # add 
         self._settings_panel.add_child(inference_config)
 
@@ -328,21 +295,6 @@ class AppWindow:
         rgb[9, :] = [161, 195, 218] # summer song
         rgb = rgb / 255  
 
-        # # bottle coloring
-        # bottle_vertices = np.asarray(self.mesh_bottle.vertices) 
-        # bottle_normals = np.asarray(self.mesh_bottle.vertex_normals)
-        # # bottle_colors = np.sqrt(np.ones_like(bottle_normals) - (bottle_normals - 1) ** 2)
-        # bottle_colors = 0.8*np.ones_like(bottle_normals)
-        # n = bottle_normals[:, :2]
-        # n = n/np.linalg.norm(n, axis=1, keepdims=True)
-        # bottle_colors[n[:, 0] > 0.99] = np.array([1, 0, 0])
-        # n = bottle_normals[:, [0, 2]]
-        # n = n/np.linalg.norm(n, axis=1, keepdims=True)
-        # angle = np.arctan2(n[:, 1], n[:, 0])
-        # h = (angle/np.pi/2).reshape(-1, 1)
-        # s = 80/100 * np.ones_like(h)
-        # v = 80/100 * np.ones_like(h)
-
         # new bottle coloring
         bottle_vertices = np.asarray(self.mesh_bottle.vertices) 
         bottle_normals = np.asarray(self.mesh_bottle.vertex_normals)
@@ -354,41 +306,6 @@ class AppWindow:
         self.mesh_bottle.vertex_colors = o3d.utility.Vector3dVector(
             bottle_colors
         )
-
-        # if self.draw_bottle_label:
-        #     self.mesh_bottle_label = o3d.geometry.TriangleMesh.create_cylinder(radius=0.0355, height=0.07, resolution=30, create_uv_map=True, split=20)
-        #     self.mesh_bottle_label.paint_uniform_color([0.8, 0.8, 0.8])
-        #     self.mesh_bottle_label.compute_vertex_normals()
-
-        #     # initialize
-        #     bottle_cylinder_vertices = np.asarray(self.mesh_bottle_label.vertices)
-        #     bottle_cylinder_normals = np.asarray(self.mesh_bottle_label.vertex_normals)
-        #     bottle_cylinder_colors = np.ones_like(bottle_cylinder_normals)
-        #     # print(np.min(bottle_cylinder_vertices), np.max(bottle_cylinder_vertices))
-            
-        #     # band
-        #     n = bottle_cylinder_normals[:, :2]
-        #     n = n/np.linalg.norm(n, axis=1, keepdims=True)
-        #     bottle_cylinder_colors[
-        #         np.logical_and(np.logical_and(n[:, 0] > 0.85, bottle_cylinder_vertices[:, 2] > -0.025), bottle_cylinder_vertices[:, 2] < 0.025)
-        #     ] = rgb[0]
-            
-        #     # # gradation
-        #     # bottle_cylinder_colors = np.zeros_like(bottle_cylinder_normals)
-        #     # bottle_cylinder_thetas = np.arctan2(bottle_cylinder_vertices[:, 1], bottle_cylinder_vertices[:, 0])
-        #     # bottle_cylinder_colors[:, 0] = (1 + np.cos(3 * bottle_cylinder_thetas)) / 2 * 0.7 
-        #     # bottle_cylinder_colors[:, 1] = (1 + np.sin(3 * bottle_cylinder_thetas)) / 2 * 0.7
-    
-        #     self.mesh_bottle_label.vertex_colors = o3d.utility.Vector3dVector(
-        #         bottle_cylinder_colors
-        #     )
-
-        #     self.mesh_bottle_label.translate([0.0, 0, 0.155])
-        #     R = self.mesh_bottle_label.get_rotation_matrix_from_xyz((0, 0, self.bottle_label_angle))
-            # self.mesh_bottle_label.rotate(R, center=(0, 0, 0))
-
-        # # # combine
-        # self.mesh_bottle += self.mesh_bottle_label
 
         # load mug
         self.mesh_mug = get_mesh_mug(
@@ -422,7 +339,7 @@ class AppWindow:
             self._settings_panel.calc_preferred_size(
                 layout_context, gui.Widget.Constraints()).height)
         self._settings_panel.frame = gui.Rect(r.get_right() - width, r.y, width,
-                                              height)
+                                            height)
 
     def _update_traj(self):
         self.remove_trajectory()
@@ -442,11 +359,6 @@ class AppWindow:
         self.remove_trajectory()
         self.sample_trajectories()
         self.update_trajectory()
-
-    # def _set_text(self, value):
-    #     self.remove_trajectory()
-    #     self.text = [value]
-    #     self._current_text.text_value = value
 
     def _set_skip_size(self, value):
         # self.remove_trajectory()
@@ -475,7 +387,7 @@ class AppWindow:
         self.sample_trajectories()
     
     def _set_bottle_rot(self, value):
-        self.rot_bottle = float(value) / 180 * np.pi
+        self.rot_bottle = torch.tensor(float(value) / 180 * np.pi)
         self.tau[5] = torch.cos(self.rot_bottle)
         self.tau[6] = torch.sin(self.rot_bottle)
         self.sample_trajectories()
@@ -513,18 +425,14 @@ class AppWindow:
         # update trajectory
         for idx in range(0, len(self.traj), self.skip_size):
             mesh_bottle_ = deepcopy(self.mesh_bottle)
-            frame_ = deepcopy(self.frame)
+            frame_bottle = deepcopy(self.frame)
             T = self.traj[idx]
             mesh_bottle_.transform(T)
-            frame_.transform(T)
-            # if self.draw_bottle_label:
-            #     mesh_bottle_label_ = deepcopy(self.mesh_bottle_label)
-            #     mesh_bottle_label_.transform(T)
+            frame_bottle.transform(T)
 
             self._scene.scene.add_geometry(f'bottle_{idx}', mesh_bottle_, self.mat)
-            # self._scene.scene.add_geometry(f'coord_{idx}', frame_, self.mat)
-            # if self.draw_bottle_label:
-            #     self._scene.scene.add_geometry(f'bottle_label_{idx}', mesh_bottle_label_, self.mat)
+            if idx == 0:
+                self._scene.scene.add_geometry(f'coord_{idx}', frame_bottle, self.mat)
 
     def update_trajectory_video(self):
                 
@@ -541,48 +449,18 @@ class AppWindow:
         # t_last_idx = [0] * len(range(0, len(self.traj), self.skip_size))
 
         # update trajectory
-        for num, idx in enumerate(range(0, len(self.traj), self.skip_size)):
+        for idx in range(0, len(self.traj), self.skip_size):
             if self.event.is_set():
                 break
             self.idx = idx
             self.mesh_bottle_ = deepcopy(self.mesh_bottle)
-            # T_grasp_point = np.eye(4)
-            # T_grasp_point[2, 3] -= self.grasp_height
-            # self.mesh_bottle_.transform(T_grasp_point)
-            self.frame_ = deepcopy(self.frame)
+            self.frame_bottle = deepcopy(self.frame)
             T = self.traj[idx]
             self.mesh_bottle_.transform(T)
-            self.frame_.transform(T)
+            self.frame_bottle.transform(T)
             # Update geometry
             gui.Application.instance.post_to_main_thread(self.window, self.update_scene)
             time.sleep(0.05)
-            # if num == 0:
-        
-        # # update trajectory
-        # self.thread_finished = False
-        # skip_size = 5
-        # end_idx = range(0, len(self.traj), skip_size)[-1]
-        # for idx in range(0, len(self.traj), skip_size):
-        #     self.mesh_bottle_ = deepcopy(self.mesh_bottle)
-        #     self.frame_ = deepcopy(self.frame)
-        #     T = self.traj[idx]
-        #     self.mesh_bottle_.transform(T)
-        #     self.frame_.transform(T)
-        #     if self.draw_bottle_label:
-        #         self.mesh_bottle_label_ = deepcopy(self.mesh_bottle_label)
-        #         self.mesh_bottle_label_.transform(T)
-        #     self.idx = idx
-        #     if idx == end_idx:
-        #         self.mesh_box.paint_uniform_color([222/255,184/255,135/255])
-        #     else:
-        #         color_scale = 4
-        #         self.mesh_box.paint_uniform_color(
-        #             [222/255/color_scale,184/255/color_scale,135/255/color_scale]
-        #         )
-        #     # Update geometry
-        #     gui.Application.instance.post_to_main_thread(self.window, self.update_bottle_coord)
-        #     time.sleep(0.05)
-        # self.thread_finished = True
 
     def update_scene(self):
         
@@ -594,22 +472,7 @@ class AppWindow:
             f'bottle_{self.idx}', self.mesh_bottle_, self.mat
         )
         self._scene.scene.add_geometry(
-            f'coord_{self.idx}', self.frame_, self.mat)
-                
-                
-        # self._scene.scene.clear_geometry()
-        # self._scene.scene.add_geometry('frame_init', self.frame, self.mat)
-        # self._scene.scene.add_geometry('mug_init', self.mesh_mug, self.mat)
-        # self._scene.scene.add_geometry('box_init', self.mesh_box, self.mat)
-        # self._scene.scene.add_geometry(
-        #     f'bottle_{self.idx}', self.mesh_bottle_, self.mat
-        # )
-        # self._scene.scene.add_geometry(
-        #     f'coord_{self.idx}', self.frame_, self.mat)
-        # if self.draw_bottle_label:
-        #     self._scene.scene.add_geometry(
-        #         f'bottle_label_{self.idx}', self.mesh_bottle_label_, self.mat
-        #     )       
+            f'coord_{self.idx}', self.frame_bottle, self.mat)
 
     def remove_trajectory(self):
         self._scene.scene.clear_geometry()
